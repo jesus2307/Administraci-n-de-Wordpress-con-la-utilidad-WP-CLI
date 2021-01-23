@@ -1,63 +1,88 @@
-!/bin/bash
+#!/bin/bash
 
-##############
-###VARIABLES##
-##############
-CLAVE_MYSQL=root
-ROOT_MYSQL=root
-DB_NAME=wordpress_data
-DB_USER=wordpress_user
-DB_PASSWORD=wordpress_password
-IP_PRIVADA=localhost
+#DECLARACIÓN DE LAS VARIABLES
+IP=http://184.72.159.248
+HTTPASSWD_DIR=/home/ubuntu
+DB_ROOT_PASSWD=root
+DB_NAME=wp_db
+DB_USER=wp_user
+DB_PASSWORD=wp_pass
 
-# Variables de sitio Wordpress
-WP_URL=54.174.234.141
-WP-ADMIN=jesus
-WP_ADMIN_PASS=jesus
-WP_NAME=jesus
-WP_ADMIN_EMAIL=jesus@gmail.com
 
-# Activar la depuración del script
+# ---------------------------
+# INSTALACIÓN DE LA PILA LAMP|
+# ---------------------------
+#Activamos la depuración del script
 set -x
-# Actualizamos
-apt update
-apt upgrade
 
-# Creamos la base de datos
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "DROP DATABASE IF EXISTS $DB_NAME;"
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "CREATE DATABASE $DB_NAME;"
+#Actualizamos la lista de paquetes y los actualizamos
+apt update -y
+apt upgrade -y
 
-# Creamos el usuario 
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "DROP USER '$DB_USER'@'$IP_PRIVADA';"
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "CREATE USER '$DB_USER'@'$IP_PRIVADA' IDENTIFIED WITH caching_sha2_password BY '$DB_PASSWORD';"
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "GRANT ALL ON $DB_NAME.* TO '$DB_USER'@'$IP_PRIVADA';"
-mysql -u $ROOT_MYSQL -p$CLAVE_MYSQL <<< "FLUSH PRIVILEGES;"
+#INSTALACIÓN APACHE 
+apt install apache2 -y
 
 
-# Descargar archivo wp-cli.phar
-curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-
-# Asignar permiso de ejecución
-chmod +x wp-cli.phar
-
-# Mover el archivo al directorio y cambiar su nombre (así se puede usar sin tener que utilizar una ruta absoluta)
-mv wp-cli.phar /usr/local/bin/wp
+#INSTALACIÓN MYSQL 
+apt install mysql-server -y
 
 
-# Ir al directorio de descarga para Wordpress
+#INSTALACIÓN PHP
+#Instalamos módulos PHP 
+apt install php libapache2-mod-php php-mysql -y
+
+#Reiniciamos el servicio Apache2
+systemctl restart apache2
+
+
+
+#CREACIÓN DE LA BASE DE DATOS DE WORDPRESS
+
+#Nos aseguramos de que la base de datos que vamos a crear no existe, y si existe, la borramos
+mysql -u root <<< "DROP DATABASE IF EXISTS $DB_NAME;"
+
+#Creamos la base de datos
+mysql -u root <<< "CREATE DATABASE $DB_NAME;"
+
+#Nos aseguramos de que no existe el usuario que vamos a crear, y si existe, lo borramos
+mysql -u root <<< "DROP USER IF EXISTS $DB_USER@localhost;"
+
+#Creamos el usuario para Wordpress
+mysql -u root <<< "CREATE USER $DB_USER@localhost IDENTIFIED BY '$DB_PASSWORD';"
+
+#Concedemos privilegios a nuestro usuario
+mysql -u root <<< "GRANT ALL PRIVILEGES ON $DB_NAME.* TO $DB_USER@localhost;"
+
+#Aplicamos cambios con un FLUSH
+mysql -u root <<< "FLUSH PRIVILEGES;"
+
+
+#---------------------
+#INSTALACIÓN WORDPRESS|
+#---------------------
+#Nos movemos al directorio de Apache
 cd /var/www/html
 
-# Eliminamos index.html
+#Descargamos y guardamos el contenido de wp-cli.phar
+curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+
+#Le asignamos permisos de ejecución
+chmod +x wp-cli.phar
+
+#Movemos el archivo y cambiamos el nombre 
+mv wp-cli.phar /usr/local/bin/wp
+
+#Eliminamos index.html
 rm -rf index.html
 
-# Descargar código de Wordpress (en español) con el flag --allow-root para que permita descargarlo
+# Descargamos el código fuente de Wordpress en español y le damos permisos
 wp core download --locale=es_ES --allow-root
 
-# Le damos permiso a la carpeta de wordpress
+#Le damos permisos a la carpeta de Wordpress
 chown -R www-data:www-data /var/www/html
 
-# Crear archivo de configuración
+#Creamos el archivo de configuración de Wordpress
 wp config create --dbname=$DB_NAME --dbuser=$DB_USER --dbpass=$DB_PASSWORD --allow-root
 
-# Crear sitio Wordpress
-wp core install --url=$WP_URL --title="$WP_NAME" --admin_user=$WP_ADMIN --admin_password=$WP_ADMIN_PASS --admin_email=$WP_ADMIN_EMAIL --allow-root
+#Instalamos Wordpress
+wp core install --url=$IP --title="Jesus" --admin_user=admin --admin_password=admin --admin_email=jesus@gmail.com --allow-root
